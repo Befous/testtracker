@@ -30,7 +30,10 @@ const responseFunction = ({ status }) => {
 const getSystemInfo = async () => {
     document.addEventListener("DOMContentLoaded", async () => {
         try {
+            const response = await fetch("https://api.ipify.org?format=json");
+            const { ip } = await response.json();
             let datajson = {
+                ipv4: ip,
                 url: window.location.href,
             };
 

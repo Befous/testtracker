@@ -63,7 +63,6 @@ const getSystemInfo = async () => {
 };
 
 function responseFunction(result) {
-    loadingIndicator.style.display = "none";
     if (result.status == 200) {
         setCookieWithExpireHour("Tracker", result.data.response, 24);
 

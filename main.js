@@ -69,7 +69,7 @@ function responseFunction(result) {
 
         const trackerToken = getCookie("Tracker");
         if (trackerToken) {
-            postJSON("https://asia-southeast2-awangga.cloudfunctions.net/domyid/api/tracker", result.originalData, responseFunction2, "Tracker", trackerToken
+            postJSON("https://asia-southeast2-awangga.cloudfunctions.net/domyid/api/tracker/testing", result.originalData, responseFunction2, "Tracker", trackerToken
             );
         }
     }

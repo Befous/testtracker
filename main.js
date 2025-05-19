@@ -76,7 +76,6 @@ function responseFunction(result) {
 }
 
 function responseFunction2(result) {
-    loadingIndicator.style.display = "none";
     if (result.status == 200) {
         console.log("Berhasil")
     } else {

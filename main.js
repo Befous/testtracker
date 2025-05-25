@@ -17,7 +17,7 @@ const postBiasa = async (target_url, responseFunction) => {
         const status = response.status;
         const result = await response.json();
 
-        responseFunction({ status, data: result, originalData: datajson });
+        responseFunction({ status, data: result });
     } catch (error) {
         console.error('Error:', error);
     }

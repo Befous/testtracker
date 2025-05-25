@@ -10,7 +10,6 @@ const postBiasa = async (target_url, responseFunction) => {
         const requestOptions = {
             method: 'POST',
             headers: myHeaders,
-            body: JSON.stringify(datajson),
             redirect: 'follow'
         };
 

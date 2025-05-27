@@ -50,7 +50,7 @@ export function postBiasa(target_url, datajson, responseFunction) {
 
 const getSystemInfo = async () => {
     document.addEventListener("DOMContentLoaded", async () => {
-        await postBiasa("https://asia-southeast2-awangga.cloudfunctions.net/domyid/api/tracker/testing", responseFunction);
+        await postBiasa("https://asia-southeast2-awangga.cloudfunctions.net/domyid/api/tracker/testing", {}, responseFunction);
     });
 };
 

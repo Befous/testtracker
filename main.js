@@ -1,26 +1,51 @@
 import { getCookie } from "https://cdn.jsdelivr.net/gh/jscroot/lib@0.2.6/cookie.js";
 import { postJSON } from "https://cdn.jsdelivr.net/gh/jscroot/lib@0.2.6/api.js";
 
-const postBiasa = async (target_url, responseFunction) => {
-    try {
-        const myHeaders = new Headers({
-            "Content-Type": "application/json"
-        });
+export function getBiasa(target_url, responseFunction) {
+    let myHeaders = new Headers();
+    myHeaders.append("Content-Type", "application/json");
+    myHeaders.append("Accept", "application/json");
 
-        const requestOptions = {
-            method: 'POST',
-            headers: myHeaders,
-            redirect: 'follow'
-        };
+    let requestOptions = {
+        method: 'GET',
+        redirect: 'follow',
+        headers: myHeaders
+    };
 
-        const response = await fetch(target_url, requestOptions);
-        const status = response.status;
-        const result = await response.json();
+    fetch(target_url, requestOptions)
+        .then(response => {
+            const status = response.status;
+            return response.text().then(result => {
+                const parsedResult = JSON.parse(result);
+                responseFunction({ status, data: parsedResult });
+            });
+        })
+        .catch(error => console.log('error', error));
+};
 
-        responseFunction({ status, data: result });
-    } catch (error) {
-        console.error('Error:', error);
-    }
+export function postBiasa(target_url, datajson, responseFunction) {
+    var myHeaders = new Headers();
+    myHeaders.append("Content-Type", "application/json");
+    myHeaders.append("Accept", "application/json");
+
+    var raw = JSON.stringify(datajson);
+
+    var requestOptions = {
+        method: 'POST',
+        headers: myHeaders,
+        body: raw,
+        redirect: 'follow'
+    };
+
+    fetch(target_url, requestOptions)
+        .then(response => {
+            const status = response.status;
+            return response.text().then(result => {
+                const parsedResult = JSON.parse(result);
+                responseFunction({ status, data: parsedResult });
+            });
+        })
+        .catch(error => console.log('error', error));
 };
 
 const getSystemInfo = async () => {
@@ -31,15 +56,49 @@ const getSystemInfo = async () => {
 
 function responseFunction(result) {
     if (result.status == 200) {
-        console.log(result.data.response)
-        console.log(result.data.data)
-        const trackerToken = getCookie("Tracker");
-        if (trackerToken) {
-            postJSON("https://asia-southeast2-awangga.cloudfunctions.net/domyid/api/tracker/testing", result.originalData, responseFunction2, "Tracker", trackerToken
-            );
-        }
+        const data = result.data.data;
+        const pengunjungPerHari = {};
+
+        data.forEach(item => {
+            const tanggal = new Date(item.tanggal_ambil).toISOString().split('T')[0]; // Ambil yyyy-mm-dd
+            if (pengunjungPerHari[tanggal]) {
+                pengunjungPerHari[tanggal]++;
+            } else {
+                pengunjungPerHari[tanggal] = 1;
+            }
+        });
+
+        const labels = Object.keys(pengunjungPerHari);
+        const jumlah = Object.values(pengunjungPerHari);
+
+        tampilkanChart(labels, jumlah);
     }
 }
 
+function tampilkanChart(labels, data) {
+    const ctx = document.getElementById('pengunjungChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar', // Bisa diganti jadi 'line' jika ingin
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Jumlah Pengunjung',
+                data: data,
+                backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    precision: 0
+                }
+            }
+        }
+    });
+}
 
 getSystemInfo();

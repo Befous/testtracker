@@ -1,5 +1,6 @@
-import { getCookie } from "https://cdn.jsdelivr.net/gh/jscroot/lib@0.2.6/cookie.js";
-import { postJSON } from "https://cdn.jsdelivr.net/gh/jscroot/lib@0.2.6/api.js";
+import { runAfterDOM, onClicks } from "https://cdn.jsdelivr.net/gh/jscroot/lib@0.2.6/element.js";
+
+let pengunjungChartInstance = null;
 
 export function getBiasa(target_url, responseFunction) {
     let myHeaders = new Headers();
@@ -48,45 +49,141 @@ export function postBiasa(target_url, datajson, responseFunction) {
         .catch(error => console.log('error', error));
 };
 
-const getSystemInfo = async () => {
-    document.addEventListener("DOMContentLoaded", async () => {
-        await postBiasa("https://asia-southeast2-awangga.cloudfunctions.net/domyid/api/tracker/testing", {}, responseFunction);
-    });
+function loadChart(howLong) {
+    const url = `https://asia-southeast2-awangga.cloudfunctions.net/domyid/api/tracker/testing?how_long=${howLong}`;
+    postBiasa(url, {}, (result) => responseFunction(result, howLong));
 };
 
-function responseFunction(result) {
+function handleButtonClick(buttonElement) {
+    const range = buttonElement.getAttribute('data-range');
+    loadChart(range);
+}
+
+runAfterDOM(() => {
+    // onClicks('tombol-tracker', handleButtonClick);
+    // loadChart("last_day");
+    console.log("=== Browser Info ===");
+
+    console.log("User-Agent:", navigator.userAgent);
+    console.log("Bahasa browser:", navigator.language || navigator.userLanguage);
+    console.log("Resolusi layar:", screen.width + "x" + screen.height);
+    console.log("Ukuran jendela:", window.innerWidth + "x" + window.innerHeight);
+    console.log("Timezone:", Intl.DateTimeFormat().resolvedOptions().timeZone);
+    console.log('ontouchstart' in window);
+    const hasTouchStart = 'ontouchstart' in window;
+    document.getElementById('touchResult').textContent = hasTouchStart;
+});
+
+function responseFunction(result, howLong) {
     if (result.status == 200) {
         const data = result.data.data;
-        const pengunjungPerHari = {};
 
-        data.forEach(item => {
-            const tanggal = new Date(item.tanggal_ambil).toISOString().split('T')[0]; // Ambil yyyy-mm-dd
-            if (pengunjungPerHari[tanggal]) {
-                pengunjungPerHari[tanggal]++;
-            } else {
-                pengunjungPerHari[tanggal] = 1;
+        if (howLong === "last_day") {
+            const nowUTC = new Date();
+            const now = new Date(nowUTC.getTime() + 7 * 60 * 60 * 1000);
+            const startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+            const pengunjungPerJam = Array(24).fill(0);
+            const labels = [];
+
+            for (let i = 0; i < 24; i++) {
+                const hour = new Date(startTime.getTime() + i * 60 * 60 * 1000);
+                labels.push(hour.getHours().toString().padStart(2, '0') + ':00');
             }
-        });
 
-        const labels = Object.keys(pengunjungPerHari);
-        const jumlah = Object.values(pengunjungPerHari);
+            data.forEach(item => {
+                const waktuUTC = new Date(item.tanggal_ambil);
+                const waktu = new Date(waktuUTC.getTime() + 7 * 60 * 60 * 1000);
 
-        tampilkanChart(labels, jumlah);
+                if (waktu >= startTime && waktu <= now) {
+                    const diffMs = waktu - startTime;
+                    const jamIndex = Math.floor(diffMs / (60 * 60 * 1000));
+
+                    if (jamIndex >= 0 && jamIndex < 24) {
+                        pengunjungPerJam[jamIndex]++;
+                    }
+                }
+            });
+
+            tampilkanChart(labels, pengunjungPerJam);
+
+        } else {
+            const pengunjung = {};
+            data.forEach(item => {
+                const waktuUTC = new Date(item.tanggal_ambil);
+                const waktu = new Date(waktuUTC.getTime() + 7 * 60 * 60 * 1000);
+
+                const key = waktu.toISOString().split('T')[0];
+                pengunjung[key] = (pengunjung[key] || 0) + 1;
+            });
+
+            const allDates = generateDateRange(Object.keys(pengunjung), howLong);
+            const labels = allDates;
+            const jumlah = allDates.map(tgl => pengunjung[tgl] || 0);
+
+            tampilkanChart(labels, jumlah);
+        }
     }
-}
+};
+
+function generateDateRange(tanggalArray, howLong) {
+    if (howLong === 'last_week' || howLong === 'last_month') {
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+        let start;
+
+        if (howLong === 'last_week') {
+            start = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000);
+        } else {
+            start = new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000);
+        }
+
+        const dateList = [];
+        const dateIter = new Date(start);
+
+        while (dateIter <= now) {
+            dateList.push(dateIter.toISOString().split('T')[0]);
+            dateIter.setDate(dateIter.getDate() + 1);
+        }
+
+        return dateList;
+    }
+    
+    const sortedDates = tanggalArray.slice().sort();
+    const start = new Date(sortedDates[0]);
+    const end = new Date(sortedDates[sortedDates.length - 1]);
+
+    const dateList = [];
+    const iterDate = new Date(start);
+
+    while (iterDate <= end) {
+        dateList.push(iterDate.toISOString().split('T')[0]);
+        iterDate.setDate(iterDate.getDate() + 1);
+    }
+
+    return dateList;
+};
 
 function tampilkanChart(labels, data) {
     const ctx = document.getElementById('pengunjungChart').getContext('2d');
-    new Chart(ctx, {
-        type: 'bar', // Bisa diganti jadi 'line' jika ingin
+
+    if (pengunjungChartInstance !== null) {
+        pengunjungChartInstance.destroy();
+    }
+
+    pengunjungChartInstance = new Chart(ctx, {
+        type: 'line',
         data: {
             labels: labels,
             datasets: [{
                 label: 'Jumlah Pengunjung',
                 data: data,
-                backgroundColor: 'rgba(54, 162, 235, 0.5)',
-                borderColor: 'rgba(54, 162, 235, 1)',
-                borderWidth: 1
+                fill: false,
+                borderColor: 'rgba(75, 192, 192, 1)',
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                tension: 0.1,
+                pointBackgroundColor: 'rgba(75, 192, 192, 1)',
+                pointBorderColor: '#fff'
             }]
         },
         options: {
@@ -94,11 +191,11 @@ function tampilkanChart(labels, data) {
             scales: {
                 y: {
                     beginAtZero: true,
-                    precision: 0
+                    ticks: {
+                        stepSize: 1
+                    }
                 }
             }
         }
     });
-}
-
-getSystemInfo();
+};
